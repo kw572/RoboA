@@ -8,12 +8,11 @@ This repository contains the code and analysis for our study on:
 
 ## 📁 Repository Structure
 
-| File/Folder                      | Description |
+| Folder                      | Description |
 |----------------------------------|-------------|
-| `00_Preprocess.Rmd`              | Preprocessing of Seurat object (normalization, PCA, UMAP). |
-| `01_FigS1_cell_composition.Rmd`  | Cell type composition visualization and UMAPs. |
-| `01_FigS1_pharynx_epithelium.Rmd`| Pharynx-specific cell analysis. |
-| `02_Fig5_Head_vs_pharynx.Rmd`    | Differential expression and comparison of head vs. pharynx neural cells. |
+| `Analysis_of_FoxARNAi`              | Analysis of foxA(RNAi) scRNAseq data generated in this study. Refer to Fig6 and FigS5 |
+| `Reanalysis_of_Fincher_2018`  | Determine pharynx cell types; Compare head and pharynx neuorns. Refer to FigS1, Fig2, Fig5 |
+
 
 ---
 
