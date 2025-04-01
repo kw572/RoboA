@@ -11,7 +11,7 @@ This repository contains the code and analysis for our study on:
 | Folder                      | Description |
 |----------------------------------|-------------|
 | `Analysis_of_FoxARNAi`              | Analysis of foxA(RNAi) scRNAseq data generated in this study. Refer to Fig6 and FigS5 |
-| `Reanalysis_of_Fincher_2018`  | Determine pharynx cell types; Compare head and pharynx neuorns. Refer to FigS1, Fig2, Fig5 |
+| `Reanalysis_of_Fincher_2018`  | Reanalyze data from [Fincher et al., 2018](https://pubmed.ncbi.nlm.nih.gov/29674431/); Determine pharynx cell types; Compare head and pharynx neuorns. Refer to FigS1, Fig2, Fig5 |
 
 
 ---
