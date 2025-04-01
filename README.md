@@ -1,5 +1,5 @@
 # Pluripotent Stem Cell Plasticity is Fine-Tuned by a Slit-Independent Robo Pathway in a Regenerative Animal 
-This repository contains the code and analysis for our study on **Pluripotent Stem Cell Plasticity is Fine-Tuned by a Slit-Independent Robo Pathway in a Regenerative Animal **, as presented in the accompanying publication:  
+This repository contains the code and analysis for our study on:
 📄 _"Pluripotent Stem Cell Plasticity is Fine-Tuned by a Slit-Independent Robo Pathway in a Regenerative Animal "_  
 🧬 _Kuang-Tse Wang, Yu-Chia Chen, Fu-Yu Tsai, Catherine P Judy, Carolyn E Adler_
 _
