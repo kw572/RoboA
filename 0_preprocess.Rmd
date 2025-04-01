@@ -1,0 +1,47 @@
+---
+title: "00_Preprocess Fincher"
+output: html_document
+date: "2023-07-06"
+---
+
+```{r setup, include=FALSE}
+# Set global chunk options
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load required packages
+library(Seurat)
+library(tidyverse)
+```
+
+```{r}
+# Load Seurat object (raw or previously processed)
+Fincher.orig <- readRDS("Fincher.orig.rds")
+```
+
+```{r}
+# Set the default assay to RNA
+DefaultAssay(Fincher.orig) <- "RNA"
+
+# Perform Seurat preprocessing steps:
+# - Normalize data
+# - Identify variable features
+# - Scale data
+# - Run PCA for dimensionality reduction
+# - Run UMAP for visualization
+Fincher.orig <- Fincher.orig %>% 
+  NormalizeData() %>% 
+  FindVariableFeatures() %>% 
+  ScaleData() %>% 
+  RunPCA() %>% 
+  RunUMAP(dims = 1:50)
+```
+
+```{r}
+# Save the processed Seurat object
+saveRDS(Fincher.orig, "Fincher.orig.rds")
+```
+
+
+

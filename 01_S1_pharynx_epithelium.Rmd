@@ -1,0 +1,123 @@
+---
+title: "02_S1_pharynx_epithelium"
+output: html_document
+date: "2025-04-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load custom plotting themes and required libraries
+source("~/Rfunction/scTheme.R")
+scThemes <- scThemes()
+
+library(Seurat)
+library(tidyverse)
+# Load full dataset and subset pharynx-specific cells
+Fincher.orig <- readRDS("Fincher.orig.rds")
+Pharynx <- subset(Fincher.orig, subset = Section %in% c("Pharynx"))
+
+```
+
+```{r}
+# Define colors for major cluster annotations
+major_levels <- c("Pharynx", "Muscle", "Neural", "Protonephridia", 
+                  "Cathepsin+ cells", "Epidermal", "Intestine", 
+                  "Neoblast", "Parapharyngeal")
+
+major_colors <- setNames(
+  c("#DB72FB", "#00BA38", "#00B9E3", "#FF61C3", "#F8766D",
+    "#D39200", "#93AA00", "#00C19F", "#619CFF"),
+  major_levels
+)
+
+```
+
+```{r}
+# Normalize and preprocess Pharynx subset
+DefaultAssay(Pharynx) <- "RNA"
+
+Pharynx <- Pharynx %>% 
+  NormalizeData() %>% 
+  ScaleData(features = rownames(.)) %>% 
+  FindVariableFeatures() %>% 
+  RunPCA() %>% 
+  RunUMAP(dims = 1:50) %>% 
+  FindNeighbors(dims = 1:20) %>% 
+  FindClusters()
+
+```
+
+```{r}
+# UMAP colored by major cluster type
+dimplot <- DimPlot(Pharynx, group.by = "Major.cluster.description", shuffle = TRUE) +
+  scThemes$umap +
+  theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = major_colors) +
+  ggtitle(NULL)
+
+```
+
+```{r}
+# Barplot of major clusters within Pharynx by section
+section.num <- data.frame("Section" = Pharynx$Section, "Major" = Pharynx$Major.cluster.description)
+
+section.pct <- section.num %>%
+  group_by(Section, Major) %>%
+  summarise(count = n(), .groups = 'drop') %>%
+  group_by(Section) %>%
+  mutate(pct = count / sum(count))
+
+Section_bar <- ggplot(section.pct, aes(x = factor(Section), y = pct * 100, fill = factor(Major))) +
+  labs(x = "Library", y = "Percent", fill = "Annotation") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+        text = element_text(size = 8),
+        legend.key.size = unit(0.1, "in")) +
+  geom_bar(stat = "identity", width = 0.7, color = "black", size = 0.25) +
+  scale_fill_manual(values = major_colors) +
+  geom_text(aes(label = ifelse(round(pct * 100) > 5, paste0(round(pct * 100), "%"), NA)),
+            position = position_stack(vjust = 0.5), size = 6 / .pt)
+
+# Print table summary
+knitr::kable(section.pct)
+
+```
+
+```{r}
+# Keep only major relevant cell types for focused marker analysis
+Pharynx <- subset(Pharynx, subset = Major.cluster.description %in% 
+                    c("Pharynx", "Muscle", "Neural", "Protonephridia", "Cathepsin+ cells"))
+
+```
+
+```{r}
+# Load marker genes for DotPlot and FeaturePlot
+markers <- read_csv("pharynx.marker.csv")
+
+```
+
+```{r}
+# DotPlot of marker gene expression
+dotplot <- DotPlot(Pharynx, features = markers$gene, group.by = "Major.cluster.description", 
+                   dot.min = 0.1, scale = FALSE) +
+  scale_x_discrete(labels = markers$name) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.5))
+
+```
+
+```{r}
+# Generate individual FeaturePlots with custom titles
+plot_list <- FeaturePlot(Pharynx, features = markers$gene, combine = FALSE)
+
+plot_list <- lapply(seq_along(plot_list), function(i) {
+  plot_list[[i]] +
+    ggtitle(markers$name[[i]]) +
+    scThemes$umap +
+    theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in"))
+})
+
+```
+

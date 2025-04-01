@@ -1,0 +1,92 @@
+---
+title: "01_S1_cell_composition"
+output: html_document
+date: "2025-04-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load required libraries
+library(Seurat)
+library(tidyverse)
+```
+
+```{r}
+# Load custom ggplot theme functions
+source("~/Rfunction/scTheme.R")
+scThemes <- scThemes()
+```
+
+```{r}
+# Define color palette for anatomical sections
+section_lvls <- c("Pharynx", "Head", "Trunk", "PrePhar", "Tail", "Whole")
+section_colors <- setNames(
+  c("#FED439FF", "#709AE1FF", "#8A9197FF", "#D2AF81FF", "#FD7446FF", "#D5E4A2FF"),
+  section_lvls
+)
+
+# Define color palette for major cell clusters
+major_lvls <- c("Pharynx", "Muscle", "Neural", "Protonephridia", "Cathepsin+ cells", 
+                "Epidermal", "Intestine", "Neoblast", "Parapharyngeal")
+major_colors <- setNames(
+  c("#DB72FB", "#00BA38", "#00B9E3", "#FF61C3", "#F8766D", 
+    "#D39200", "#93AA00", "#00C19F", "#619CFF"),
+  major_lvls
+)
+
+```
+
+```{r}
+# Load Seurat object
+Fincher.orig <- readRDS("Fincher.orig.rds")
+```
+
+```{r}
+# UMAPs colored by section and major cluster
+UMAP_by_section <- DimPlot(Fincher.orig, group.by = "Section", shuffle = TRUE) +
+  scThemes$umap +
+  theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = section_colors)
+
+UMAP_by_Major <- DimPlot(Fincher.orig, group.by = "Major.cluster.description") +
+  scThemes$umap +
+  theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = major_colors)
+```
+
+```{r}
+# UMAPs for specific major clusters
+UMAP_Neural <- DimPlot(subset(Fincher.orig, subset = Major.cluster.description == "Neural"), 
+                       group.by = "Section", shuffle = TRUE) +
+  scThemes$umap + theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = section_colors)
+
+UMAP_Muscle <- DimPlot(subset(Fincher.orig, subset = Major.cluster.description == "Muscle"), 
+                       group.by = "Section", shuffle = TRUE) +
+  scThemes$umap + theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = section_colors)
+
+UMAP_Ph <- DimPlot(subset(Fincher.orig, subset = Major.cluster.description == "Pharynx"), 
+                   group.by = "Section", shuffle = TRUE) +
+  scThemes$umap + theme(aspect.ratio = 1, legend.key.size = unit(0.1, "in")) +
+  scale_color_manual(values = section_colors)
+```
+
+```{r}
+# Save UMAP plots to PDF
+pdf("01_Finscher_umaps.pdf", height = 3, width = 3)
+UMAP_by_section
+UMAP_by_Major
+UMAP_by_section + NoLegend()
+UMAP_by_Major + NoLegend()
+UMAP_Neural + NoLegend()
+UMAP_Muscle + NoLegend()
+UMAP_Ph + NoLegend()
+dev.off()
+```
+
+
+
