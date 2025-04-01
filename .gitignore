@@ -1,4 +1,26 @@
-.Rproj.user
+# R session files
 .Rhistory
+.Rapp.history
 .RData
 .Ruserdata
+
+# RStudio files
+.Rproj.user/
+*.Rproj
+
+# Cache / data
+*.rds
+*.rdata
+*.rda
+*.rdb
+*.rdx
+
+# Output plots or reports
+*.pdf
+*.html
+*.docx
+*.xlsx
+
+# System files
+.DS_Store
+Thumbs.db
