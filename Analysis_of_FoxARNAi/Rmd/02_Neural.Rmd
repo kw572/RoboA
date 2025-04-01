@@ -1,0 +1,43 @@
+---
+title: "02_Neural"
+output: html_document
+date: "2024-08-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("Matrix")
+library("readr")
+library(Seurat)
+library(tidyverse)
+library(harmony)
+library(cowplot)
+library(patchwork)
+```
+
+```{r}
+merged<-readRDS("Ctrl_FoxA_merged_082924.rds")
+Neural<-subset(merged, subset=predicted.id=="Neural")
+```
+
+```{r Clustering}
+Neural <-Neural %>% 
+  ScaleData() %>%
+  RunPCA %>% RunHarmony( "orig.ident") %>% 
+  RunUMAP( reduction = "harmony", dims = 1:50) %>%
+  FindNeighbors(reduction = "harmony", dim=1:30) 
+
+Neural <-Neural%>% FindClusters(resolution = 2)
+```
+
+```{r}
+DimPlot(Neural,label = T)
+```
+
+```{r}
+saveRDS(Neural,paste0("Neural", Sys.Date(), ".rds"))
+```
+
