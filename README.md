@@ -24,7 +24,6 @@ This repository contains the code and analysis for our study on:
   - `tidyverse`
   - `patchwork`
   - `ggplot2`
-  - Your custom theme function: `scTheme.R`
 
 ---
 
