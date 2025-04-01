@@ -1,0 +1,157 @@
+---
+title: "00_Preprocessed"
+output: html_document
+date: "2024-08-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library("Matrix")
+library("readr")
+library(Seurat)
+library(tidyverse)
+library(harmony)
+```
+
+```{r message=FALSE}
+source("~/Rfunction/scTheme.R")
+scThemes<-scThemes()
+```
+
+```{r Reading the matrix}
+Ctrl.mtx<-Read10X("Ctrl_trunk/filtered_feature_bc_matrix/")
+FoxA.mtx<-Read10X("FoxA_trunk/filtered_feature_bc_matrix/")
+
+Ctrl<-CreateSeuratObject(Ctrl.mtx,project = "Ctrl(RNAi)")
+FoxA<-CreateSeuratObject(FoxA.mtx,project = "FoxA(RNAi)")
+rm(Ctrl.mtx)
+rm(FoxA.mtx)
+```
+
+```{r}
+Ctrl<-Ctrl %>% NormalizeData()%>% FindVariableFeatures()
+FoxA<-FoxA %>% NormalizeData()%>% FindVariableFeatures()
+Ctrl_FoxA_merged<-merge(Ctrl,FoxA)
+```
+
+```{r Plot MT_16S }
+Ctrl_FoxA_merged$count.16S<-FetchData(object = Ctrl_FoxA_merged, vars = "SMED30032887") %>% setNames("count.16S")
+Ctrl_FoxA_merged$pct.16S<-Ctrl_FoxA_merged$count.16S/Ctrl_FoxA_merged$nCount_RNA
+
+pdf("16S.pdf")
+RidgePlot(Ctrl_FoxA_merged,features = "pct.16S")
+dev.off()
+```
+
+```{r}
+clustering<-function(harmony_merged,a=0.5){
+harmony_merged <- harmony_merged %>% FindNeighbors(reduction = "harmony", dims = 1:20) %>% FindClusters(resolution=a)}
+
+harmony_pipe<-function(harmony_merged){
+harmony_merged <- harmony_merged %>% ScaleData() %>% RunPCA() 
+harmony_merged <- RunHarmony(harmony_merged, "orig.ident")
+harmony_merged <- RunUMAP(harmony_merged, reduction = "harmony", dims = 1:50) 
+harmony_merged <- clustering(harmony_merged)
+return(harmony_merged)
+}
+```
+
+```{r}
+Ctrl_FoxA_merged<- Ctrl_FoxA_merged %>% harmony_pipe()
+```
+
+```{r UMAP plot}
+Ctrl_FoxA_merged %>% DimPlot(label = T)
+```
+
+```{r}
+Fincher.SMESG <- readRDS("~/Desktop/scRNA-seq/RoboA_scRNAseq/Fincher.SMESG.rds")
+```
+
+```{r}
+anchors <- FindTransferAnchors(reference = Fincher.SMESG, query =Ctrl_FoxA_merged)
+predictions <- TransferData(anchorset = anchors, refdata = Fincher.SMESG$Major.cluster.description,
+    dims = 1:30)
+Ctrl_FoxA_merged<- AddMetaData(Ctrl_FoxA_merged, metadata = predictions)
+```
+```{r UMAP plot}
+Ctrl_FoxA_merged %>% DimPlot(group.by  = "predicted.id")
+```
+```{r}
+
+Ctrl_FoxA_merged<-JoinLayers(Ctrl_FoxA_merged)
+
+Pharynx.cell<-Ctrl_FoxA_merged %>% subset(subset=predicted.id=="Pharynx") 
+
+Pouch.cell <- Pharynx.cell %>% subset(subset = `SMESG000065348.1` > 1) #dd_1320
+
+pouch_cells <- colnames(Pouch.cell)
+
+Ctrl_FoxA_merged@meta.data[pouch_cells, "predicted.id"] <- "Pharynx pouch"
+
+Ctrl_FoxA_merged@meta.data$predicted.id <- 
+  ifelse(Ctrl_FoxA_merged@meta.data$predicted.id == "Pharynx", 
+         "Pharynx epithelium", 
+         Ctrl_FoxA_merged@meta.data$predicted.id)
+```
+
+```{r}
+levels <- c("Pharynx epithelium", "Muscle" , "Neural" ,"Protonephridia","Cathepsin+ cells", "Epidermal", "Intestine" , "Neoblast" ,"Parapharyngeal","Pharynx pouch")
+colors <- c("#DB72FB" ,"#00BA38" , "#00B9E3" , "#FF61C3", "#F8766D" ,"#D39200" ,"#93AA00" ,"#00C19F","#619CFF","grey" )
+
+# Create a named vector of colors
+major_colors <- setNames(colors, levels)
+```
+
+```{r}
+Ctrl_FoxA_merged %>% DimPlot(group.by = "predicted.id")+
+  scThemes$umap+theme(aspect.ratio = 1,
+        legend.key.size = unit(0.1,"in"))+
+  scale_color_manual(values = major_colors)
+
+
+pdf(paste0("umap_",Sys.Date(),".pdf"))
+Ctrl_FoxA_merged %>% DimPlot(group.by = "predicted.id",split.by = "orig.ident")+
+  scThemes$umap+theme(aspect.ratio = 1,
+        legend.key.size = unit(0.1,"in"))+
+  scale_color_manual(values = major_colors)
+dev.off()
+```
+
+
+```{r}
+cell_counts <- Ctrl_FoxA_merged@meta.data %>%
+  select(orig.ident, predicted.id) %>%
+  group_by(orig.ident,predicted.id)%>%
+  summarise(count = n()) %>%
+  ungroup()
+# Ensure all combinations of orig.ident and seurat_clusters are represented
+complete_cell_counts <- cell_counts %>%
+  complete(orig.ident, predicted.id, fill = list(count = 0))
+
+# Calculate the fraction of cells for each cluster within each orig.ident
+complete_cell_counts <- complete_cell_counts %>%
+  group_by(orig.ident) %>%
+  mutate(fraction = count / sum(count) * 100) %>%  # Convert to percentage
+  ungroup()
+
+pdf(paste0("Cell_freq_",Sys.Date(),".pdf"), height = 3)
+ggplot(complete_cell_counts, aes(x = predicted.id, y = fraction, fill = orig.ident)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Cell Fraction by Cluster and Orig.ident", x = "Cluster", y = "Cell Fraction (%)", fill = "Orig.ident") +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  RotatedAxis()+# Format y-axis as percentages+
+theme(aspect.ratio = 1)
+dev.off()
+```
+
+```{r}
+saveRDS(Ctrl_FoxA_merged,"Ctrl_FoxA_merged_01022025.rds")
+```
+
+
+
