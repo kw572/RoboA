@@ -8,3 +8,171 @@ date: "2025-04-01"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+# Load required libraries
+library(Matrix)
+library(readr)
+library(Seurat)
+library(tidyverse)
+library(harmony)
+library(cowplot)
+library(patchwork)
+
+# Load the pre-processed Seurat object containing neural cells
+Neural <- readRDS("Neural2024-09-18.rds")
+# Subset for sections of interest
+Neural <- subset(Neural, subset = Section %in% c("Head", "Pharynx"))
+
+```
+
+```{r}
+# Save DimPlots showing neural clustering and section origin
+pdf("DimPlot.fincher.pdf", height = 5, width = 5)
+DimPlot(Neural, label = FALSE) + theme(aspect.ratio = 1) + NoLegend()
+DimPlot(Neural, group.by = "Section") +
+  scale_color_manual(values = c("#FF9900", "#3399FF")) +
+  theme(aspect.ratio = 1) + NoLegend()
+DimPlot(Neural, label = FALSE) + theme(aspect.ratio = 1)
+DimPlot(Neural, group.by = "Section") +
+  scale_color_manual(values = c("#FF9900", "#3399FF")) +
+  theme(aspect.ratio = 1)
+dev.off()
+
+```
+
+```{r}
+# Summarize cell count per cluster and section
+cell_counts <- Neural@meta.data %>%
+  filter(Section %in% c("Head", "Pharynx")) %>%
+  group_by(Section, seurat_clusters) %>%
+  summarise(count = n(), .groups = 'drop')
+
+# Ensure all cluster-section combinations are included
+complete_cell_counts <- cell_counts %>%
+  complete(Section, seurat_clusters, fill = list(count = 0)) %>%
+  filter(Section %in% c("Head", "Pharynx"))
+
+# Calculate percentages
+complete_cell_counts <- complete_cell_counts %>%
+  group_by(Section) %>%
+  mutate(fraction = count / sum(count) * 100) %>%
+  ungroup()
+
+# Order clusters by Pharynx abundance
+pharynx_counts <- complete_cell_counts %>%
+  filter(Section == "Pharynx") %>%
+  arrange(desc(count)) %>%
+  pull(seurat_clusters)
+
+complete_cell_counts <- complete_cell_counts %>%
+  mutate(seurat_clusters = factor(seurat_clusters, levels = rev(pharynx_counts)))
+
+# Plot fraction of cells by cluster and section
+p0 <- ggplot(complete_cell_counts, aes(x = seurat_clusters, y = fraction, fill = Section)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  theme_minimal() +
+  labs(title = "Cell Fraction by Cluster and Section",
+       x = "Cluster", y = "Cell Fraction (%)", fill = "Section") +
+  scale_fill_manual(values = c("#FF9900", "#3399FF")) +
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  coord_flip()
+
+pdf("Cell_freq.pdf", width = 3)
+p0
+dev.off()
+
+```
+
+```{r log2fc-barplot}
+# Calculate log2 fold change in cluster fractions between Head and Pharynx
+log2fc_df <- filtered_complete_counts %>%
+  select(Section, seurat_clusters, fraction) %>%
+  spread(key = Section, value = fraction, fill = 0) %>%
+  mutate(log2FC = log2((Head + 0.01) / (Pharynx + 0.01)))  # Prevent log(0)
+
+# Save barplot
+pdf("log2FC_h_vs_p.pdf")
+ggplot(log2fc_df, aes(x = seurat_clusters, y = log2FC)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(
+    title = "Log2 Fold Change of Cell Fractions (Head vs Pharynx) by Cluster",
+    x = "Cluster",
+    y = "Log2 Fold Change Head/Pharynx"
+  ) +
+  geom_hline(yintercept = c(1, -1), linetype = "dashed", color = "red") +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  coord_flip()
+dev.off()
+
+```
+
+```{r}
+# Rank clusters by log2FC
+log2fc_df <- log2fc_df %>%
+  arrange(desc(log2FC)) %>%
+  mutate(rank = row_number())
+
+# Save ranks for reuse
+cluster_ranks <- log2fc_df %>%
+  select(seurat_clusters, log2FC, rank)
+
+# Ranked barplot
+p1 <- ggplot(log2fc_df, aes(x = reorder(seurat_clusters, rank), y = log2FC)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(x = "Cluster (Ranked)") +
+  ylab(NULL) +
+  geom_hline(yintercept = c(1, -1), linetype = "dashed", color = "red") +
+  scale_y_continuous(limits = c(-10, 10), breaks = seq(-10, 10, 1),
+                     labels = scales::number_format(accuracy = 1)) +
+  coord_flip()
+```
+
+```{r}
+# Load pkd-related gene list
+pkd.list <- read_tsv("pkd.list-pkd23.tsv")
+```
+
+```{r}
+# DotPlot for selected pkd marker genes
+p2 <- DotPlot(Neural, features = pkd.list$v4[-c(1:6)]) +
+  scale_x_discrete(labels = pkd.list$names[-c(1:6)]) +
+  scale_y_discrete(limits = rev(pharynx_counts)) +
+  theme_minimal() +
+  scale_color_gradient2(high = "red", low = "white") +
+  RotatedAxis() +
+  xlab(NULL) +
+  ylab(NULL)
+
+# Get legend separately
+legend_2 <- get_legend(
+  DotPlot(Neural, features = pkd.list$v4[-c(1:6)]) +
+    scale_x_discrete(labels = pkd.list$names[-c(1:6)]) +
+    scale_y_discrete(limits = rev(pharynx_counts)) +
+    theme_minimal() +
+    scale_color_gradient2(high = "red", low = "white") +
+    RotatedAxis() +
+    ylab(NULL)
+)
+```
+
+```{r}
+# Save combined dotplot with barplot
+pdf(paste0("neuroclusters_pkd", Sys.Date(), ".pdf"), height = 8)
+p0 + p2
+dev.off()
+```
+
+```{r}
+# DotPlot for early pkd markers (first 6 genes)
+p4 <- DotPlot(Neural, features = pkd.list$v4[1:6]) +
+  scale_x_discrete(labels = pkd.list$names[1:6]) +
+  scale_y_discrete(limits = rev(pharynx_counts)) +
+  theme_minimal() +
+  scale_color_gradient2(high = "red", low = "white") +
+  RotatedAxis() +
+  theme(axis.text.x = element_text(size = 8))
+```
+
+
