@@ -1,0 +1,91 @@
+---
+title: "03_Fig5_volcano"
+output: html_document
+date: "2025-04-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load required libraries
+library(Seurat)
+library(tidyverse)
+library(cowplot)
+library(patchwork)
+library(ggrepel)
+# Load preprocessed Seurat object of neural cells
+Neural <- readRDS("Neural2024-09-18.rds")
+```
+
+```{r}
+# Perform differential expression analysis between Head vs Pharynx
+Marker <- FindMarkers(Neural, ident.1 = "Pharynx", group.by = "Section") %>%
+  rownames_to_column("ID")
+
+```
+
+```{r}
+# Define volcano plot function
+plot_volcano <- function(markers_table, logfc_threshold = 1, pval_threshold = 0.01) {
+  if (!all(c("avg_log2FC", "p_val_adj") %in% colnames(markers_table))) {
+    stop("The markers table must contain 'avg_log2FC' and 'p_val_adj' columns.")
+  }
+
+  # Add significance grouping
+  markers_table$significance_group <- with(markers_table, ifelse(
+    p_val_adj < pval_threshold & avg_log2FC > logfc_threshold, "Significant_Positive",
+    ifelse(p_val_adj < pval_threshold & avg_log2FC < -logfc_threshold, "Significant_Negative", "Not_Significant")
+  ))
+
+  max_logfc <- max(abs(markers_table$avg_log2FC), na.rm = TRUE)
+
+  # Generate the volcano plot
+  ggplot(markers_table, aes(x = avg_log2FC, y = -log10(p_val_adj), label = names)) +
+    geom_point(aes(color = significance_group), size = 1.5) +
+    scale_color_manual(values = c(
+      "Not_Significant" = "gray",
+      "Significant_Positive" = "#3399FF",
+      "Significant_Negative" = "#FF9900"
+    )) +
+    labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 Adjusted P-Value") +
+    theme_minimal() +
+    theme(legend.position = "top") +
+    scale_x_continuous(limits = c(-max_logfc, max_logfc)) +
+    geom_vline(xintercept = c(-logfc_threshold, logfc_threshold), linetype = "dashed", color = "blue") +
+    geom_hline(yintercept = -log10(pval_threshold), linetype = "dashed", color = "blue") +
+    geom_text_repel(
+      force = 10, max.overlaps = Inf, box.padding = 0.5,
+      point.padding = 0.3, min.segment.length = 0, seed = 42
+    )
+}
+```
+
+```{r}
+# Load annotated gene list and join with DE results
+pkd.list <- read_tsv("pkd.list-pkd23.tsv")
+
+Marker_anno <- Marker %>%
+  left_join(pkd.list, by = c("ID" = "v4")) %>%
+  mutate(
+    names = ifelse(is.na(names), ID, names),  # fallback name if not annotated
+    significance_group = case_when(
+      p_val_adj < 0.01 & avg_log2FC > 1 ~ "Significant_Positive",
+      p_val_adj < 0.01 & avg_log2FC < -1 ~ "Significant_Negative",
+      TRUE ~ "Not_Significant"
+    ),
+    p_val_adj = ifelse(p_val_adj < 1e-300, 1e-300, p_val_adj)  # Avoid -Inf in log10
+  )
+
+```
+
+```{r}
+# Plot volcano plot using the annotation
+volcano_plot <- plot_volcano(Marker_anno, logfc_threshold = 1, pval_threshold = 0.01)
+
+# Save plot
+ggsave("Neural_DE_volcano.pdf", plot = volcano_plot, width = 6, height = 5)
+
+```
+
