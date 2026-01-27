@@ -1,7 +1,8 @@
 
 This repository contains the code and analysis for our study on:
 
-📄 **Pluripotent Stem Cell Plasticity is Fine-Tuned by a Slit-Independent Robo Pathway in a Regenerative Animal**  
+📄 **[RoboA reinforces planarian stem cell fate through FoxA and Anosmin1a]**  
+(https://www.nature.com/articles/s41467-026-68656-1)
 🧬 Kuang-Tse Wang, Yu-Chia Chen, Fu-Yu Tsai, Catherine P Judy, Carolyn E Adler
 
 ---
