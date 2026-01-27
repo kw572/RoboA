@@ -4,7 +4,7 @@ This repository contains the code and analysis for our study on:
 📄 **[RoboA reinforces planarian stem cell fate through FoxA and Anosmin1a]**  
 (https://www.nature.com/articles/s41467-026-68656-1)
 
-🧬 Kuang-Tse Wang, Fu-Yu Tsai, Yu-Chia Chen, , Catherine P Judy,  Indya E. Weathers, Engin Özkan, Carolyn E Adler
+🧬 Kuang-Tse Wang, Fu-Yu Tsai, Yu-Chia Chen, Catherine P Judy,  Indya E. Weathers, Engin Özkan, Carolyn E Adler
 
 ---
 
